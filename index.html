@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Loopscope: JavaScript Event Loop Visualizer</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#faf6ec;--card:#fffdf7;--line:#e8dfc9;--ink:#2a2922;--mut:#7b7766;--g:#2f7d4f;--g2:#4caf73;--gl:#e2f0dc;--gb:#b7d8b0;--am:#b9801a;--aml:#fbefcf;--amb:#e8cf8f;--mi:#dcefea;--mb:#a9d3c8;--mono:'JetBrains Mono',ui-monospace,Menlo,monospace}
+*,*::before,*::after{box-sizing:inherit}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 Inter,system-ui,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:0 18px 48px}
+.nav{display:flex;align-items:center;gap:10px;padding:18px 0;font:600 19px Fraunces,Georgia,serif}
+.nav i{width:14px;height:14px;border-radius:50%;border:3px solid var(--g);border-right-color:transparent}
+.hero{padding:26px 0 22px;max-width:720px}
+h1{font:500 clamp(30px,5vw,48px)/1.12 Fraunces,Georgia,serif;margin:0 0 12px;letter-spacing:-.01em}
+.hero p{color:var(--mut);margin:0;max-width:60ch}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+.hd{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px}
+h2{font:600 15px Fraunces,Georgia,serif;margin:0}
+.hint{font-size:12px;color:var(--mut)}
+.top{display:grid;grid-template-columns:1.25fr 1fr;gap:14px;margin-bottom:14px}
+textarea{width:100%;height:270px;resize:vertical;border:1px solid var(--line);border-radius:10px;background:#fbf8ee;color:var(--ink);padding:12px;font:13px/1.6 var(--mono);outline:none;tab-size:2}
+textarea:focus,select:focus,button:focus-visible{outline:2px solid var(--g2);outline-offset:2px}
+.ctl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}
+button,select{font:500 14px Inter,sans-serif;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:9px;padding:8px 14px;cursor:pointer}
+button:hover:not(:disabled){border-color:var(--g2)}button:disabled{opacity:.45;cursor:default}
+.pri{background:var(--g);border-color:var(--g);color:#fff}.pri:hover:not(:disabled){background:#276a43}
+.ctl label{margin-left:auto;font-size:13px;color:var(--mut);display:flex;gap:8px;align-items:center}
+input[type=range]{accent-color:var(--g);width:110px}.ctl label+label{margin-left:12px}output{font:12px var(--mono);min-width:30px}
+.out{height:270px;overflow:auto;background:#fbf8ee;border:1px solid var(--line);border-radius:10px;padding:10px;font:13px/1.7 var(--mono)}
+.out:empty::before{content:"Output appears here as code runs.";color:var(--mut)}
+.ln{padding:1px 8px;border-left:3px solid var(--g2);margin-bottom:3px;animation:flash 1.2s}
+.ln.err{border-color:#c0392b;color:#a5281b}.ln.wrn{border-color:var(--am)}
+@keyframes flash{from{background:var(--gl)}}
+.grid{display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:14px}.col{display:flex;flex-direction:column;gap:14px}
+.stack{display:flex;flex-direction:column-reverse;gap:8px;min-height:300px;border-bottom:4px solid var(--g);padding-bottom:8px}
+.stack:empty::before,.q:empty::before,.web:empty::before{content:"empty";color:var(--mut);font-size:12px;order:9}
+.web{display:flex;flex-direction:column;gap:8px;min-height:92px}
+.q{display:flex;gap:8px;min-height:50px;align-items:center;overflow-x:auto;border-top:1px dashed var(--line);border-bottom:1px dashed var(--line);padding:6px 0}
+.chip{font:500 12.5px var(--mono);padding:9px 12px;border-radius:9px;border:1px solid var(--gb);background:var(--gl);white-space:nowrap}
+.q .chip{flex:none}
+.chip.in{animation:pop .35s}.chip.out{animation:outk .3s forwards}
+@keyframes pop{from{opacity:0;transform:translateY(-16px) scale(.9)}}@keyframes outk{to{opacity:0;transform:translateY(-12px)}}
+.chip.m{background:var(--mi);border-color:var(--mb)}
+.chip.t,.chip.w{background:var(--aml);border-color:var(--amb)}
+.chip.w{display:grid;gap:5px;white-space:normal}.chip.w small{color:var(--am)}.chip.w.done{border-color:var(--g2);background:var(--gl)}
+.bar{display:block;height:5px;width:0;border-radius:5px;background:var(--am)}.done .bar{background:var(--g2);width:100%!important}
+.loop{text-align:center}
+.ring{width:62px;height:62px;color:var(--g);animation:spin 6s linear infinite}.ring.fast{animation-duration:1s}
+@keyframes spin{to{transform:rotate(360deg)}}
+#status{min-height:44px;font-size:14px;margin:8px 0}
+.pill{display:inline-block;font:500 12px var(--mono);padding:3px 12px;border-radius:20px;background:#efe9d8;color:var(--mut)}
+.pill.sync{background:var(--gl);color:var(--g)}.pill.async{background:var(--aml);color:var(--am)}
+.how{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:34px}
+.how h3{font:600 15px Fraunces,Georgia,serif;margin:0 0 6px;color:var(--g)}.how p{margin:0;font-size:13.5px;color:var(--mut)}
+footer{margin-top:30px;font-size:12.5px;color:var(--mut)}
+@media(max-width:900px){.top,.grid,.how{grid-template-columns:1fr}.ctl label{margin-left:0}}
+@media(prefers-reduced-motion:reduce){.ring{animation:none}}
+body{font-size:17px;line-height:1.6}
+.wrap{max-width:1320px;padding:0 28px 64px}
+.nav{font-size:25px;padding:22px 0;border-bottom:1px solid var(--line)}
+.nav i{width:18px;height:18px}
+.hero{max-width:840px;padding:44px 0 36px}
+h1{font-size:clamp(34px,5.2vw,58px);line-height:1.08;margin-bottom:16px}
+.hero p{font-size:19.5px;max-width:62ch}
+.top,.grid{gap:20px}.top{margin-bottom:20px}.col{gap:20px}
+.card{border-radius:8px;padding:24px}
+.hd{padding-bottom:12px;margin-bottom:18px;border-bottom:1px solid var(--line)}
+h2{font-size:22px}
+.hint{font-size:14.5px}
+textarea,.out{height:330px;font-size:16px;line-height:1.7;padding:16px}
+button,select{font-size:16px;padding:11px 20px;border-radius:6px}
+.ctl{gap:12px;margin-top:16px}.ctl label{font-size:15.5px}
+input[type=range]{width:120px}output{font-size:14.5px;min-width:36px}
+.chip{font-size:16px;padding:12px 16px;border-radius:6px}
+.chip.w small{font-size:14px}
+.ln{padding:3px 10px;margin-bottom:5px}
+.stack{min-height:390px;gap:10px}
+.web{min-height:130px}.q{min-height:70px;gap:10px}
+.stack:empty::before,.q:empty::before,.web:empty::before{font-size:15px}
+.pill{font-size:14.5px;padding:4px 14px}
+.ring{width:88px;height:88px}
+#status{font-size:18px;line-height:1.45;min-height:58px;margin:12px 0 4px}
+.how{gap:24px;margin-top:48px}.how h3{font-size:20px;margin-bottom:8px}.how p{font-size:16.5px}
+footer{font-size:14.5px;margin-top:36px;line-height:1.6}
+@media(max-width:900px){.wrap{padding:0 16px 48px}.card{padding:18px}textarea,.out{height:270px}.stack{min-height:300px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="nav"><i></i>Loopscope</div>
+<section class="hero">
+<h1>Watch how JavaScript runs your code, one step at a time</h1>
+<p>Paste some code, then press Start to see it flow through the call stack, Web APIs, queues and the event loop. Or step through each move yourself.</p>
+</section>
+
+<section class="top">
+<div class="card">
+<div class="hd"><h2>Your code</h2><select id="ex" aria-label="Load an example"></select></div>
+<textarea id="code" spellcheck="false" aria-label="JavaScript code"></textarea>
+<div class="ctl">
+<button id="go" class="pri">Start</button><button id="step">Next step</button><button id="rs">Reset</button>
+<label>Animation speed <input id="spd" type="range" min=".5" max="3" step=".5" value="1"></label><label>Delay between steps <input id="dly" type="range" min="0" max="4" step=".5" value="1.5"><output id="dv">1.5s</output></label>
+</div>
+</div>
+<div class="card"><div class="hd"><h2>Result</h2><span class="hint">console output</span></div><div id="out" class="out"></div></div>
+</section>
+
+<section class="grid">
+<div class="card"><div class="hd"><h2>Call Stack</h2><span class="hint">runs one frame at a time</span></div><div id="stack" class="stack"></div></div>
+<div class="col">
+<div class="card"><div class="hd"><h2>Web APIs</h2><span class="hint">timers wait here</span></div><div id="web" class="web"></div></div>
+<div class="card loop"><div class="hd"><h2>Event Loop</h2><span id="check" class="pill">idle</span></div>
+<svg id="ring" class="ring" viewBox="0 0 80 80" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"><path d="M40 10a30 30 0 0 1 27 17"/><path d="M40 70a30 30 0 0 1-27-17"/><path d="M60 24l8 4 3-9M20 56l-8-4-3 9"/></svg>
+<div id="status">Press Start or Next step to begin.</div></div>
+</div>
+<div class="col">
+<div class="card"><div class="hd"><h2>Callback Queue</h2><span class="hint">timers and promise jobs</span></div><div id="task" class="q"></div></div>
+</div>
+</section>
+
+<section class="how">
+<div><h3>Call Stack</h3><p>Holds the function being run. A new call goes on top and leaves when it returns.</p></div>
+<div><h3>Web APIs</h3><p>Async work such as timers happens outside the stack. When it finishes, the callback is queued.</p></div>
+<div><h3>Callback Queue</h3><p>Finished timer callbacks wait here. Promise jobs are served first.</p></div>
+<div><h3>Event Loop</h3><p>Watches the stack. When it is empty, it moves the next waiting job onto it.</p></div>
+</section>
+<footer>Runs in your browser. Timers use a virtual clock, so a 5 second timeout is animated, not waited for. Frames for async functions are not drawn; setInterval stops after 5 runs.</footer>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const EX={
+'Timers and promises':"console.log('Start');\n\nsetTimeout(() => console.log('Timeout 1s'), 1000);\nsetTimeout(() => console.log('Timeout 0s'), 0);\n\nPromise.resolve().then(() => console.log('Promise'));\n\nfunction greet(name) {\n  console.log('Hi ' + name);\n}\ngreet('World');\n\nconsole.log('End');",
+'async / await':"async function fetchData() {\n  console.log('fetching...');\n  await null;\n  console.log('data ready');\n}\nconsole.log('A');\nfetchData();\nsetTimeout(() => console.log('timer'), 0);\nconsole.log('B');",
+'Nested timers':"setTimeout(() => {\n  console.log('outer');\n  setTimeout(() => console.log('inner'), 500);\n  Promise.resolve().then(() => console.log('micro in timer'));\n}, 500);\nqueueMicrotask(() => console.log('first microtask'));\nconsole.log('sync');",
+'setInterval':"let n = 0;\nconst id = setInterval(() => {\n  n++;\n  console.log('tick ' + n);\n  if (n === 3) clearInterval(id);\n}, 500);"};
+const ta=$('#code'),E={stack:$('#stack'),web:$('#web'),task:$('#task'),out:$('#out'),st:$('#status'),chk:$('#check'),ring:$('#ring')};
+let sp=1,dly=1.5,evs=[],idx=0,auto=false,busy=false,ready=false,src='',abort=false;
+Object.keys(EX).forEach(k=>$('#ex').add(new Option(k,k)));
+ta.value=EX['Timers and promises'];
+const wait=ms=>new Promise(r=>setTimeout(r,ms/sp));
+const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const mk=(c,h,id)=>{const d=document.createElement('div');d.className='chip '+c;d.innerHTML=h;if(id!=null)d.dataset.id=id;return d};
+const L=m=>{E.st.textContent=m},ring=on=>E.ring.classList.toggle('fast',on);
+
+async function fly(from,to,dest,keep){
+  const a=from.getBoundingClientRect();to.style.opacity=0;dest.append(to);
+  const b=to.getBoundingClientRect(),g=from.cloneNode(true);
+  Object.assign(g.style,{position:'fixed',left:a.left+'px',top:a.top+'px',width:a.width+'px',margin:0,zIndex:50});
+  document.body.append(g);if(!keep)from.remove();
+  await g.animate([{transform:'none'},{transform:'translate('+(b.left-a.left)+'px,'+(b.top-a.top)+'px)'}],{duration:750/sp,easing:'cubic-bezier(.5,0,.2,1)',fill:'forwards'}).finished;
+  g.remove();to.style.opacity=1;
+}
+const find=(box,id)=>box.querySelector('[data-id="'+id+'"]');
+
+async function exec(e){
+  switch(e.t){
+  case 'push':{const c=mk('f in',esc(e.n));E.stack.append(c);L(e.n==='main()'?'Script starts: main() goes on the call stack':'Call stack: running '+e.n);await wait(500);break}
+  case 'pop':{const c=E.stack.lastElementChild;if(c){c.classList.add('out');await wait(320);c.remove()}L(E.stack.children.length?'Returned to the previous frame':'Call stack is empty');await wait(200);break}
+  case 'check':E.chk.className='pill '+e.k;E.chk.textContent=e.k==='sync'?'sync':'async';L(e.m);ring(1);await wait(900);ring(0);break;
+  case 'log':{const d=document.createElement('div');d.className='ln '+(e.k||'');d.textContent=e.v;E.out.append(d);E.out.scrollTop=1e9;L('Result: printed to the console');await wait(450);break}
+  case 'web':{const dur=(600+Math.min(e.d,3000)*.8)/sp,c=mk('w',"<b>"+esc(e.n)+"</b><small>waiting "+e.d+"ms</small><i class='bar'></i>",e.id);
+    await fly(E.stack.lastElementChild||E.ring,c,E.web,true);L('Timer is running in the Web APIs, off the call stack');
+    c.querySelector('.bar').animate([{width:'0%'},{width:'100%'}],{duration:dur,easing:'linear',fill:'forwards'});c._end=performance.now()+dur;await wait(300);break}
+  case 'webdel':{const c=find(E.web,e.id);if(c){c.classList.add('out');await wait(300);c.remove()}break}
+  case 'fire':{const c=find(E.web,e.id);if(!c)break;L('Event loop is waiting for the timer to finish...');
+    while(performance.now()<c._end&&!abort)await new Promise(r=>setTimeout(r,40));
+    c.classList.add('done');L('Timer finished: callback moves to the callback queue');await wait(450);
+    await fly(c,mk('t',esc(e.n),e.id),E.task);await wait(250);break}
+  case 'micro':{const q=mk('m in',esc(e.n),e.id);E.task.append(q);L('Promise job added to the callback queue');await wait(600);break}
+  case 'take':{const s=find(E.task,e.id);if(!s)break;ring(1);
+    L(e.q==='micro'?'Stack is empty: event loop takes the promise job first':'Stack is empty: event loop takes the next task from the queue');await wait(700);
+    await fly(s,mk('f',esc(e.n)),E.stack);ring(0);await wait(300);break}
+  case 'end':L('Done: call stack and both queues are empty');E.chk.className='pill';E.chk.textContent='idle';ring(0);break;
+  }
+}
+
+function inst(s){
+  const ins=[];
+  for(const x of s.matchAll(/(?<![\w$])function\s+([\w$]+)\s*\([^)]*\)\s*\{/g)){
+    if(/async\s+$/.test(s.slice(Math.max(0,x.index-8),x.index)))continue;
+    let d=1,i=x.index+x[0].length,q='';
+    for(;i<s.length&&d;i++){const c=s[i];if(q){if(c==='\\')i++;else if(c===q)q=''}else if('"\'`'.includes(c))q=c;else if(c==='{')d++;else if(c==='}')d--}
+    if(d)continue;
+    ins.push([x.index+x[0].length,'const __i=__e("'+x[1]+'");try{'],[i-1,'}finally{__x(__i)}']);
+  }
+  ins.sort((a,b)=>b[0]-a[0]).forEach(([p,t])=>{s=s.slice(0,p)+t+s.slice(p)});
+  return s;
+}
+
+async function record(code){
+  const f=document.createElement('iframe');f.style.display='none';f.srcdoc='<!doctype html><body>';document.body.append(f);
+  await new Promise(r=>f.onload=r);
+  const w=f.contentWindow,T=[],tm=new Map();let uid=0,dep=0,cont=false,now=0;
+  const ev=o=>{if(T.length>600)throw new Error('Too many steps (infinite loop or recursion?)');T.push(o)};
+  const sh=v=>{try{return typeof v==='string'?v:typeof v==='function'?'f '+(v.name||'anon'):v&&typeof v==='object'?JSON.stringify(v):String(v)}catch(e){return String(v)}};
+  const lab=v=>typeof v==='string'?JSON.stringify(v).slice(0,22):sh(v).slice(0,18);
+  const endC=()=>{if(cont){ev({t:'pop'});cont=false;dep=0}};
+  const begC=()=>{if(!dep&&!cont){const id=++uid,n='await continuation';ev({t:'micro',id,n});ev({t:'take',q:'micro',id,n});cont=true;dep=1}};
+  const api=(n,a,fn)=>{begC();ev({t:'push',n:n+'('+a+')'});dep++;fn();ev({t:'pop'});dep--};
+  const job=(id,n,fn,add)=>function(...a){endC();if(add)ev({t:'micro',id,n});ev({t:'take',q:'micro',id,n});dep=1;try{return fn.apply(this,a)}finally{ev({t:'pop'});dep=0}};
+  const err=m=>T.push({t:'log',v:'Error: '+m,k:'err'});
+  ['log','info','warn','error'].forEach(k=>w.console[k]=(...a)=>api('console.'+k,a.map(lab).join(', '),()=>{
+    ev({t:'check',k:'sync',m:'console.'+k+'() is synchronous: it runs right now'});ev({t:'log',v:a.map(sh).join(' '),k:k==='error'?'err':k==='warn'?'wrn':''})}));
+  const sched=rep=>(cb,d=0)=>{if(typeof cb!=='function')return 0;d=Math.max(0,+d||0);
+    const id=++uid,nm=rep?'setInterval':'setTimeout',t={id,cb,d,rep,at:now+d,runs:0,nm,lb:cb.name||'callback'};tm.set(id,t);
+    api(nm,'cb, '+d,()=>{ev({t:'check',k:'async',m:nm+'() is asynchronous: it is handed over to the Web APIs'});t.w=++uid;ev({t:'web',id:t.w,n:nm+' '+t.lb,d})});return id};
+  w.setTimeout=sched(0);w.setInterval=sched(1);
+  w.clearTimeout=w.clearInterval=id=>{const t=tm.get(id);if(t){tm.delete(id);ev({t:'webdel',id:t.w})}};
+  const qm=w.queueMicrotask.bind(w);
+  w.queueMicrotask=cb=>api('queueMicrotask','cb',()=>{ev({t:'check',k:'async',m:'queueMicrotask() puts the job in the microtask queue'});
+    const id=++uid,n='microtask '+(cb.name||'callback');ev({t:'micro',id,n});qm(job(id,n,cb,0))});
+  const th=w.Promise.prototype.then;
+  w.Promise.prototype.then=function(a,b){const wr=(fn,k)=>typeof fn==='function'?job(++uid,k+' '+(fn.name||'callback'),fn,1):fn;return th.call(this,wr(a,'then'),wr(b,'catch'))};
+  w.__e=n=>{begC();ev({t:'push',n:n+'()'});dep++;return 0};w.__x=()=>{ev({t:'pop'});dep--};
+  w.onerror=m=>{err(m);return true};
+  w.onunhandledrejection=e=>err('Uncaught (in promise) '+(e.reason&&e.reason.message||e.reason));
+  const flush=async()=>{await new Promise(r=>setTimeout(r,0));endC()};
+  try{
+    ev({t:'push',n:'main()'});dep=1;
+    const s=w.document.createElement('script');s.textContent=inst(code);w.document.body.append(s);
+    ev({t:'pop'});dep=0;await flush();
+    while(tm.size){
+      const t=[...tm.values()].sort((a,b)=>a.at-b.at||a.id-b.id)[0];now=t.at;
+      ev({t:'fire',id:t.w,n:t.lb});ev({t:'take',q:'task',id:t.w,n:t.nm+' callback'});dep=1;
+      try{t.cb()}catch(e){err(e.message)}
+      endC();ev({t:'pop'});dep=0;t.runs++;
+      if(!t.rep)tm.delete(t.id);
+      else if(t.runs>=5){tm.delete(t.id);T.push({t:'log',v:'(interval stopped after 5 runs in this demo)',k:'wrn'})}
+      else if(tm.has(t.id)){t.at=now+t.d;t.w=++uid;ev({t:'web',id:t.w,n:t.nm+' '+t.lb,d:t.d})}
+      await flush();
+    }
+  }catch(e){err(e.message)}
+  T.push({t:'end'});f.remove();return T;
+}
+
+function clear(){[E.stack,E.web,E.task,E.out].forEach(b=>b.innerHTML='');E.chk.className='pill';E.chk.textContent='idle';L('Press Start or Next step to begin.');ring(0)}
+async function reset(){auto=false;abort=true;while(busy)await new Promise(r=>setTimeout(r,40));abort=false;clear();idx=0;ready=false;btn()}
+async function prep(){
+  if(ready&&src===ta.value&&idx<evs.length)return;
+  clear();src=ta.value;evs=await record(src);idx=0;ready=true;
+}
+function btn(){$('#go').textContent=auto?'Pause':'Start';$('#step').disabled=busy||auto}
+async function step(){if(busy||auto)return;busy=true;btn();await prep();if(idx<evs.length)await exec(evs[idx++]);busy=false;btn()}
+async function start(){
+  if(auto){auto=false;btn();return}
+  if(busy)return;auto=true;busy=true;btn();await prep();auto=true;
+  while(auto&&idx<evs.length){await exec(evs[idx++]);for(let t=0;t<dly*1000&&auto;t+=50)await new Promise(r=>setTimeout(r,50))}
+  auto=false;busy=false;btn();
+}
+$('#go').onclick=start;$('#step').onclick=step;$('#rs').onclick=reset;
+$('#spd').oninput=e=>sp=+e.target.value;
+$('#dly').oninput=e=>{dly=+e.target.value;$('#dv').textContent=dly+'s'};
+$('#ex').onchange=e=>{ta.value=EX[e.target.value];reset()};
+ta.oninput=()=>{ready=false};
+</script>
+</body>
+</html>
