@@ -134,4 +134,5 @@ Inspired by the idea behind [nodeloops.com](https://nodeloops.com) and by Philip
 
 ## License
 
-Add your preferred license here (for example MIT).
+This project is licensed under the MIT License.
+See the [LICENSE](LICENSE) file for details.
