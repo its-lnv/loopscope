@@ -1,11 +1,23 @@
 # Loopscope: JavaScript Event Loop Visualizer
 
-Loopscope is a single-page web app that shows how JavaScript runs your code. Paste any snippet, press **Start**, and watch it travel through the **Call Stack**, **Web APIs**, **Callback Queue** and the **Event Loop**, with the console output appearing in the **Result** panel.
+The event loop is easy to read about and hard to picture. Loopscope lets you watch it happen.
 
-There is no login, no backend and no build step. Open the page and use it.
+Paste any JavaScript snippet, press **Start**, and see it travel through the **Call Stack**, **Web APIs**, **Callback Queue** and the **Event Loop**, with the console output appearing in the **Result** panel. There is no login, no backend and no build step. Open the page and use it.
 
-**Live demo:** `<add your live website link>`
-**Repository:** `<add your GitHub repo link>`
+![License: MIT](https://img.shields.io/badge/license-MIT-green)
+![Vanilla JavaScript](https://img.shields.io/badge/vanilla-JavaScript-f7df1e)
+![Dependencies: none](https://img.shields.io/badge/dependencies-none-brightgreen)
+
+- **Live demo:** [Open Loopscope](https://its-lnv.github.io/loopscope/)
+- **Repository:** [github.com/its-lnv/REPLACE-WITH-REPO-NAME](https://github.com/its-lnv/loopscope)
+
+![Loopscope demo](assets/demo.gif)
+
+---
+
+## Why Loopscope?
+
+Some event loop demos animate a fixed example. Loopscope runs the snippet you paste, records what happens, and replays it, so you can test the exact code that confuses you.
 
 ---
 
@@ -26,9 +38,47 @@ There is no login, no backend and no build step. Open the page and use it.
 
 ---
 
+## Try it: can you predict the output?
+
+Paste this into Loopscope before you press Start:
+
+```js
+console.log('start');
+
+setTimeout(() => console.log('timeout'), 0);
+
+Promise.resolve().then(() => console.log('promise'));
+
+console.log('end');
+```
+
+<details>
+<summary>Show the answer</summary>
+
+```
+start
+end
+promise
+timeout
+```
+
+`start` and `end` are synchronous, so they run first. The promise callback is a microtask, and the event loop runs microtasks before it takes the next timer callback, even when the timer delay is 0. Loopscope shows both kinds of job in the same Callback Queue panel, but runs them in the real order. Press **Next step** to watch each hand-off.
+
+</details>
+
+---
+
 ## How it works
 
 Loopscope uses a **record, then replay** design.
+
+```mermaid
+flowchart LR
+    A["Your code"] --> B["Hidden iframe<br/>(patched console, timers, promises)"]
+    B --> C["Trace<br/>(list of small events)"]
+    C --> D["Replay engine"]
+    D --> E["Animated panels<br/>(Call Stack, Web APIs, Callback Queue,<br/>Event Loop, Result)"]
+```
 
 ### 1. Record: run the code for real
 
@@ -43,7 +93,7 @@ When you press Start or Next step, your code is executed once inside a hidden, s
 | `queueMicrotask` | Same as a promise job |
 | Function declarations | `main()` and each named, non-async function show up as call stack frames |
 
-Because the code really runs, the order of output is always correct. Nothing is guessed or hard-coded.
+Because your code really runs, the values and the order of the console output come from actual execution, not from a script written in advance. Two parts are modelled rather than observed: timers (they run on a virtual clock, below) and `await` continuations (below).
 
 **Virtual clock for timers.** Timers do not use real waiting. After the main script and all promise jobs finish, the recorder takes the timer with the earliest due time, advances a virtual clock to it, runs its callback, and repeats. A 5 second timeout is therefore recorded instantly and only *animated* later.
 
@@ -79,7 +129,10 @@ The entire app is one `index.html` file (HTML, CSS and JS together).
 
 ```
 loopscope/
-├── index.html   # the whole app
+├── index.html      # the whole app (HTML, CSS and JS)
+├── assets/
+│   └── demo.gif    # demo shown at the top of this README
+├── LICENSE
 └── README.md
 ```
 
@@ -107,7 +160,7 @@ Any static host works. For example, with **GitHub Pages**: push the repo, then g
 
 ---
 
-## Limitations
+## Notes and limitations
 
 - Frames for `async function` calls are not drawn on the call stack, though their code and `await` continuations are shown.
 - `setInterval` is stopped after 5 runs in the demo, so it cannot run forever.
@@ -115,16 +168,24 @@ Any static host works. For example, with **GitHub Pages**: push the repo, then g
 - Promise jobs appear in the queue at the moment they run, not at the moment `.then()` is called.
 - Only core timing APIs are supported. `fetch`, DOM events and Node-only APIs such as `process.nextTick` are not.
 - Promise jobs and timer callbacks share one visual queue. The ordering follows the real rules, but there is no separate microtask panel.
+- Only the APIs in the table above are instrumented. Timers run on a virtual clock, so code that measures real elapsed time (for example with `Date.now()`) will not see the timer delays.
+- Your snippet runs in a hidden same-origin iframe, which is not a security sandbox. Only run code you trust. Your code is not uploaded anywhere, because there is no backend.
 
 ---
 
-## Ideas for the future
+## Roadmap
 
-- Separate microtask queue view as an optional toggle
-- Call stack frames for async functions
-- Support for `fetch` and DOM events
-- Highlight the currently executing line in the editor
-- Save and share snippets through a link
+- [ ] Separate microtask queue view (optional toggle)
+- [ ] Call stack frames for async functions
+- [ ] Support for `fetch` and DOM events
+- [ ] Highlight the currently executing line in the editor
+- [ ] Save and share snippets through a link
+
+---
+
+## Contributing
+
+Issues and pull requests are welcome. If a snippet shows the wrong order or breaks the recorder, open an issue with the snippet and the output you expected.
 
 ---
 
@@ -136,3 +197,7 @@ Inspired by the idea behind [nodeloops.com](https://nodeloops.com) and by Philip
 
 This project is licensed under the MIT License.
 See the [LICENSE](LICENSE) file for details.
+
+## Author
+
+Built by [Laxmi Narayan Verma](https://www.linkedin.com/in/its-lnv/) ([GitHub](https://github.com/its-lnv)).
