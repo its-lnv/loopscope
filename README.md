@@ -9,7 +9,7 @@ Paste any JavaScript snippet, press **Start**, and see it travel through the **C
 ![Dependencies: none](https://img.shields.io/badge/dependencies-none-brightgreen)
 
 - **Live demo:** [Open Loopscope](https://its-lnv.github.io/loopscope/)
-- **Repository:** [github.com/its-lnv/REPLACE-WITH-REPO-NAME](https://github.com/its-lnv/loopscope)
+- **Repository:** [github.com/its-lnv/loopscope](https://github.com/its-lnv/loopscope)
 
 ![Loopscope demo](assets/demo.gif)
 
