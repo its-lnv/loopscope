@@ -117,14 +117,15 @@ footer{font-size:14.5px;margin-top:36px;line-height:1.6}
 <div id="status">Press Start or Next step to begin.</div></div>
 </div>
 <div class="col">
-<div class="card"><div class="hd"><h2>Callback Queue</h2><span class="hint">timers and promise jobs</span></div><div id="task" class="q"></div></div>
+<div class="card"><div class="hd"><h2>Microtask Queue</h2><span class="hint">promises, queueMicrotask</span></div><div id="micro" class="q"></div></div>
+<div class="card"><div class="hd"><h2>Callback Queue</h2><span class="hint">timer callbacks</span></div><div id="task" class="q"></div></div>
 </div>
 </section>
 
 <section class="how">
 <div><h3>Call Stack</h3><p>Holds the function being run. A new call goes on top and leaves when it returns.</p></div>
 <div><h3>Web APIs</h3><p>Async work such as timers happens outside the stack. When it finishes, the callback is queued.</p></div>
-<div><h3>Callback Queue</h3><p>Finished timer callbacks wait here. Promise jobs are served first.</p></div>
+<div><h3>Queues</h3><p>Microtasks (promises) always go before callback tasks (timers).</p></div>
 <div><h3>Event Loop</h3><p>Watches the stack. When it is empty, it moves the next waiting job onto it.</p></div>
 </section>
 <footer>Runs in your browser. Timers use a virtual clock, so a 5 second timeout is animated, not waited for. Frames for async functions are not drawn; setInterval stops after 5 runs.</footer>
@@ -137,7 +138,7 @@ const EX={
 'async / await':"async function fetchData() {\n  console.log('fetching...');\n  await null;\n  console.log('data ready');\n}\nconsole.log('A');\nfetchData();\nsetTimeout(() => console.log('timer'), 0);\nconsole.log('B');",
 'Nested timers':"setTimeout(() => {\n  console.log('outer');\n  setTimeout(() => console.log('inner'), 500);\n  Promise.resolve().then(() => console.log('micro in timer'));\n}, 500);\nqueueMicrotask(() => console.log('first microtask'));\nconsole.log('sync');",
 'setInterval':"let n = 0;\nconst id = setInterval(() => {\n  n++;\n  console.log('tick ' + n);\n  if (n === 3) clearInterval(id);\n}, 500);"};
-const ta=$('#code'),E={stack:$('#stack'),web:$('#web'),task:$('#task'),out:$('#out'),st:$('#status'),chk:$('#check'),ring:$('#ring')};
+const ta=$('#code'),E={stack:$('#stack'),web:$('#web'),micro:$('#micro'),task:$('#task'),out:$('#out'),st:$('#status'),chk:$('#check'),ring:$('#ring')};
 let sp=1,dly=1.5,evs=[],idx=0,auto=false,busy=false,ready=false,src='',abort=false;
 Object.keys(EX).forEach(k=>$('#ex').add(new Option(k,k)));
 ta.value=EX['Timers and promises'];
@@ -170,9 +171,9 @@ async function exec(e){
     while(performance.now()<c._end&&!abort)await new Promise(r=>setTimeout(r,40));
     c.classList.add('done');L('Timer finished: callback moves to the callback queue');await wait(450);
     await fly(c,mk('t',esc(e.n),e.id),E.task);await wait(250);break}
-  case 'micro':{const q=mk('m in',esc(e.n),e.id);E.task.append(q);L('Promise job added to the callback queue');await wait(600);break}
-  case 'take':{const s=find(E.task,e.id);if(!s)break;ring(1);
-    L(e.q==='micro'?'Stack is empty: event loop takes the promise job first':'Stack is empty: event loop takes the next task from the queue');await wait(700);
+  case 'micro':{const q=mk('m in',esc(e.n),e.id);E.micro.append(q);L('Promise job added to the microtask queue');await wait(600);break}
+  case 'take':{const s=find(e.q==='micro'?E.micro:E.task,e.id);if(!s)break;ring(1);
+    L(e.q==='micro'?'Stack is empty: event loop takes a microtask first':'Stack and microtasks are empty: event loop takes the next task');await wait(700);
     await fly(s,mk('f',esc(e.n)),E.stack);ring(0);await wait(300);break}
   case 'end':L('Done: call stack and both queues are empty');E.chk.className='pill';E.chk.textContent='idle';ring(0);break;
   }
@@ -201,8 +202,8 @@ async function record(code){
   const endC=()=>{if(cont){ev({t:'pop'});cont=false;dep=0}};
   const begC=()=>{if(!dep&&!cont){const id=++uid,n='await continuation';ev({t:'micro',id,n});ev({t:'take',q:'micro',id,n});cont=true;dep=1}};
   const api=(n,a,fn)=>{begC();ev({t:'push',n:n+'('+a+')'});dep++;fn();ev({t:'pop'});dep--};
-  const job=(id,n,fn,add)=>function(...a){endC();if(add)ev({t:'micro',id,n});ev({t:'take',q:'micro',id,n});dep=1;try{return fn.apply(this,a)}finally{ev({t:'pop'});dep=0}};
-  const err=m=>T.push({t:'log',v:'Error: '+m,k:'err'});
+  const job=(id,n,fn,info,m)=>function(...a){endC();if(m&&m.seg!==seg&&segPop[seg]){T.splice(T.indexOf(m),1);T.splice(T.indexOf(segPop[seg]),0,m)}ev({t:'take',q:'micro',id,n});dep=1;try{return fn.apply(this,a)}finally{if(info){info.done=1;info.wait.forEach(x=>{x.seg=seg;ev(x)})}ev({t:'pop'});dep=0}};
+  const err=m=>T.push({t:'log',v:'Error: '+m,k:'err'});const pop=()=>{const p={t:'pop'};ev(p);return p};let seg=0;const segPop=[];
   ['log','info','warn','error'].forEach(k=>w.console[k]=(...a)=>api('console.'+k,a.map(lab).join(', '),()=>{
     ev({t:'check',k:'sync',m:'console.'+k+'() is synchronous: it runs right now'});ev({t:'log',v:a.map(sh).join(' '),k:k==='error'?'err':k==='warn'?'wrn':''})}));
   const sched=rep=>(cb,d=0)=>{if(typeof cb!=='function')return 0;d=Math.max(0,+d||0);
@@ -213,8 +214,8 @@ async function record(code){
   const qm=w.queueMicrotask.bind(w);
   w.queueMicrotask=cb=>api('queueMicrotask','cb',()=>{ev({t:'check',k:'async',m:'queueMicrotask() puts the job in the microtask queue'});
     const id=++uid,n='microtask '+(cb.name||'callback');ev({t:'micro',id,n});qm(job(id,n,cb,0))});
-  const th=w.Promise.prototype.then;
-  w.Promise.prototype.then=function(a,b){const wr=(fn,k)=>typeof fn==='function'?job(++uid,k+' '+(fn.name||'callback'),fn,1):fn;return th.call(this,wr(a,'then'),wr(b,'catch'))};
+  const th=w.Promise.prototype.then,org=new WeakMap();
+  w.Promise.prototype.then=function(a,b){const o=org.get(this),info={done:0,wait:[]};const wr=(fn,k)=>{if(typeof fn!=='function')return fn;const id=++uid,n=k+' '+(fn.name||'callback'),m={t:'micro',id,n,seg},def=o&&!o.done;if(def)o.wait.push(m);else ev(m);return job(id,n,fn,info,def?0:m)};const d=th.call(this,wr(a,'then'),wr(b,'catch'));org.set(d,info);return d};
   w.__e=n=>{begC();ev({t:'push',n:n+'()'});dep++;return 0};w.__x=()=>{ev({t:'pop'});dep--};
   w.onerror=m=>{err(m);return true};
   w.onunhandledrejection=e=>err('Uncaught (in promise) '+(e.reason&&e.reason.message||e.reason));
@@ -222,12 +223,12 @@ async function record(code){
   try{
     ev({t:'push',n:'main()'});dep=1;
     const s=w.document.createElement('script');s.textContent=inst(code);w.document.body.append(s);
-    ev({t:'pop'});dep=0;await flush();
+    segPop[seg]=pop();dep=0;await flush();
     while(tm.size){
-      const t=[...tm.values()].sort((a,b)=>a.at-b.at||a.id-b.id)[0];now=t.at;
+      const t=[...tm.values()].sort((a,b)=>a.at-b.at||a.id-b.id)[0];now=t.at;seg++;
       ev({t:'fire',id:t.w,n:t.lb});ev({t:'take',q:'task',id:t.w,n:t.nm+' callback'});dep=1;
       try{t.cb()}catch(e){err(e.message)}
-      endC();ev({t:'pop'});dep=0;t.runs++;
+      endC();segPop[seg]=pop();dep=0;t.runs++;
       if(!t.rep)tm.delete(t.id);
       else if(t.runs>=5){tm.delete(t.id);T.push({t:'log',v:'(interval stopped after 5 runs in this demo)',k:'wrn'})}
       else if(tm.has(t.id)){t.at=now+t.d;t.w=++uid;ev({t:'web',id:t.w,n:t.nm+' '+t.lb,d:t.d})}
@@ -237,7 +238,7 @@ async function record(code){
   T.push({t:'end'});f.remove();return T;
 }
 
-function clear(){[E.stack,E.web,E.task,E.out].forEach(b=>b.innerHTML='');E.chk.className='pill';E.chk.textContent='idle';L('Press Start or Next step to begin.');ring(0)}
+function clear(){[E.stack,E.web,E.micro,E.task,E.out].forEach(b=>b.innerHTML='');E.chk.className='pill';E.chk.textContent='idle';L('Press Start or Next step to begin.');ring(0)}
 async function reset(){auto=false;abort=true;while(busy)await new Promise(r=>setTimeout(r,40));abort=false;clear();idx=0;ready=false;btn()}
 async function prep(){
   if(ready&&src===ta.value&&idx<evs.length)return;
